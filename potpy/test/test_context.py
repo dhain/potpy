@@ -73,6 +73,20 @@ class TestContext(unittest.TestCase):
         with self.assertRaises(TypeError) as assertion:
             self.context.inject(1)
 
+    def test_callable_injectables(self):
+        self.context['foo'] = lambda: sentinel.result
+        self.assertIs(
+            self.context.inject(lambda foo: foo),
+            sentinel.result
+        )
+
+    def test_callable_injectables_get_injected(self):
+        self.context['foo'] = lambda bar: bar
+        self.assertIs(
+            self.context.inject(lambda foo: foo),
+            sentinel.bar
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

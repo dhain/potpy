@@ -17,8 +17,12 @@ class Context(dict):
 
     def __getitem__(self, key):
         if key == 'context':
-            return dict.get(self, key, self)
-        return dict.__getitem__(self, key)
+            value = dict.get(self, key, self)
+        else:
+            value = dict.__getitem__(self, key)
+        if callable(value):
+            return self.inject(value)
+        return value
 
     def get(self, key, default=None):
         try:
