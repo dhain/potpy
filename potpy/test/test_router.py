@@ -109,31 +109,71 @@ class TestRouter(unittest.TestCase):
     def setUp(self):
         self.context = Context()
 
+    def test_injects_match_result_to_handler(self):
+        handler = Mock()
+        r = router.Router([
+            ('name1', sentinel.no_match,
+             lambda: handler(sentinel.shouldntgetthis)),
+            ('name2', sentinel.match,
+             lambda foo, bar: handler(foo, bar)),
+        ])
+        r.match = Mock(side_effect=lambda match, obj: {
+            'foo': sentinel.foo,
+            'bar': sentinel.bar
+        } if match is sentinel.match else None)
+        self.assertIs(
+            r(self.context, sentinel.obj),
+            handler.return_value
+        )
+        self.assertEqual(
+            r.match.call_args_list,
+            [
+                ((sentinel.no_match, sentinel.obj),),
+                ((sentinel.match, sentinel.obj),),
+            ]
+        )
+        handler.assert_called_once_with(sentinel.foo, sentinel.bar)
+
+    def test_raises_NoRoute_when_no_routes_at_all(self):
+        r = router.Router()
+        with self.assertRaises(r.NoRoute):
+            r(self.context, '')
+
+    def test_raises_NoRoute_when_no_routes_match(self):
+        handler = Mock()
+        r = router.Router([('name', sentinel.match, handler)])
+        r.match = Mock(return_value=None)
+        with self.assertRaises(r.NoRoute):
+            r(self.context, sentinel.obj)
+        self.assertFalse(handler.called)
+
+
+class TestUrlRouter(unittest.TestCase):
+    def setUp(self):
+        self.context = Context()
+
     def test_routes_empty_url(self):
         app = Mock(name='app')
-        r = router.Router([
+        r = router.UrlRouter([
             (None, '', lambda: app())
         ])
         self.assertIs(r(self.context, ''), app.return_value)
 
     def test_matches_url(self):
         app = Mock(name='app')
-        r = router.Router([
+        r = router.UrlRouter([
             (None, 'foo', lambda: Mock(name='foo')()),
             (None, 'bar', lambda: app())
         ])
         self.assertIs(r(self.context, 'bar'), app.return_value)
 
     def test_injects_match_groups_to_app(self):
-        results = []
-        def app(foo, bar):
-            results.append((foo, bar))
-            return sentinel.result
-        r = router.Router([
-            (None, '{foo}/{bar}', app)
+        app = Mock(name='app')
+        r = router.UrlRouter([
+            (None, '{foo}/{bar}', lambda foo, bar: app(foo, bar)),
         ])
-        self.assertIs(r(self.context, 'oof/rab'), sentinel.result)
-        self.assertEqual(results, [('oof', 'rab')])
+        self.assertIs(r(self.context, 'oof/rab'), app.return_value)
+        app.assert_called_once_with('oof', 'rab')
 
 
 if __name__ == '__main__':

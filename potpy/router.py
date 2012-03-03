@@ -36,8 +36,21 @@ class Route(list):
 
 
 class Router(list):
+    class NoRoute(Exception):
+        pass
+
+    def __call__(self, context, obj):
+        for name, match, handler in self:
+            m = self.match(match, obj)
+            if m is not None:
+                context.update(m)
+                return context.inject(handler)
+        raise self.NoRoute()
+
+
+class UrlRouter(Router):
     def __init__(self, it=()):
-        super(Router, self).__init__(it)
+        super(UrlRouter, self).__init__(it)
         self._match_cache = {}
 
     def _match_regex(self, match):
@@ -48,13 +61,6 @@ class Router(list):
                 urltemplate.make_regex(match))
         return rx
 
-    def urlmatch(self, match, url):
-        regex = self._match_regex(match)
-        return regex.match(url)
-
-    def __call__(self, context, path):
-        for name, match, obj in self:
-            m = self.urlmatch(match, path)
-            if m:
-                context.update(m.groupdict())
-                return context.inject(obj)
+    def match(self, match, path):
+        m = self._match_regex(match).match(path)
+        return m and m.groupdict()
