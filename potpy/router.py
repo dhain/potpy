@@ -5,7 +5,9 @@ from . import urltemplate
 
 class Route(list):
     class Stop(Exception):
-        pass
+        NoValue = type('NoValue', (), {})
+        def __init__(self, value=NoValue):
+            self.value = value
 
     def add(self, handler, name=None, exception_handlers=()):
         self.append((name, handler, exception_handlers))
@@ -28,7 +30,9 @@ class Route(list):
                             raise
                     finally:
                         del context['exc_info']
-            except self.Stop:
+            except self.Stop, stop:
+                if stop.value is not stop.NoValue:
+                    result = stop.value
                 break
             if name:
                 context[name] = result

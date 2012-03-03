@@ -68,6 +68,16 @@ class TestRoute(unittest.TestCase):
         self.assertIs(route(Context()), sentinel.result)
         self.assertEqual(self.calls, [sentinel.result])
 
+    def test_stop_with_value(self):
+        def stopper():
+            raise router.Route.Stop(sentinel.result)
+        route = router.Route()
+        route.add(self.handler(sentinel.not_result))
+        route.add(stopper)
+        route.add(self.handler(sentinel.also_not_result))
+        self.assertIs(route(Context()), sentinel.result)
+        self.assertEqual(self.calls, [sentinel.not_result])
+
     def test_exceptions_are_raised(self):
         MyException = type('MyException', (Exception,), {})
         route = router.Route()
