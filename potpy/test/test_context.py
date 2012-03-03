@@ -1,0 +1,78 @@
+import unittest
+from mock import sentinel, Mock
+
+from potpy import context
+
+
+class TestContext(unittest.TestCase):
+    def setUp(self):
+        self.context = context.Context(
+            foo=sentinel.foo,
+            bar=sentinel.bar,
+            baz=sentinel.baz,
+        )
+
+    def test_can_inject_to_functions(self):
+        def func(foo):
+            return foo
+        self.assertIs(self.context.inject(func), sentinel.foo)
+
+    def test_injects_self_as_context(self):
+        def func(context):
+            return context
+        self.assertIs(self.context.inject(func), self.context)
+
+    def test_can_override_context(self):
+        self.context['context'] = sentinel.context
+        def func(context):
+            return context
+        self.assertIs(self.context.inject(func), sentinel.context)
+
+    def test_context_can_be_a_default_argument(self):
+        def func(context=None):
+            return context
+        self.assertIs(self.context.inject(func), self.context)
+
+    def test_can_inject_to_classes(self):
+        class Cls(object):
+            def __init__(self, bar):
+                self.bar = bar
+        self.assertIs(self.context.inject(Cls).bar, sentinel.bar)
+
+    def test_can_inject_to_instances(self):
+        class Cls(object):
+            def __call__(self, baz):
+                return baz
+        self.assertIs(self.context.inject(Cls()), sentinel.baz)
+
+    def test_can_inject_to_instance_methods(self):
+        class Cls(object):
+            def frob(self, baz):
+                return baz
+        self.assertIs(self.context.inject(Cls().frob), sentinel.baz)
+
+    def test_can_inject_to_class_methods(self):
+        class Cls(object):
+            @classmethod
+            def frob(cls, baz):
+                return baz
+        self.assertIs(self.context.inject(Cls().frob), sentinel.baz)
+
+    def test_can_inject_to_static_methods(self):
+        class Cls(object):
+            @staticmethod
+            def frob(baz):
+                return baz
+        self.assertIs(self.context.inject(Cls().frob), sentinel.baz)
+
+    def test_raises_TypeError_for_non_callable_objects(self):
+        with self.assertRaises(TypeError) as assertion:
+            self.context.inject(object())
+
+    def test_raises_TypeError_for_integers(self):
+        with self.assertRaises(TypeError) as assertion:
+            self.context.inject(1)
+
+
+if __name__ == '__main__':
+    unittest.main()
