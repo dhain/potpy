@@ -87,6 +87,22 @@ class TestContext(unittest.TestCase):
             sentinel.bar
         )
 
+    def test_can_override_with_kwargs(self):
+        func = Mock()
+        self.context.inject(
+            lambda foo, bar: func(foo, bar),
+            bar=sentinel.overridden
+        )
+        func.assert_called_once_with(sentinel.foo, sentinel.overridden)
+
+    def test_can_specify_extra_kwargs(self):
+        func = Mock()
+        self.context.inject(
+            lambda foo, deadbeef: func(foo, deadbeef),
+            deadbeef=sentinel.deadbeef
+        )
+        func.assert_called_once_with(sentinel.foo, sentinel.deadbeef)
+
 
 if __name__ == '__main__':
     unittest.main()

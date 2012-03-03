@@ -30,7 +30,7 @@ class Context(dict):
         except KeyError:
             return default
 
-    def inject(self, func):
+    def inject(self, func, **kwargs):
         args, varargs, keywords, defaults = self._get_argspec(func)
         if defaults:
             required_args = args[:-len(defaults)]
@@ -38,10 +38,13 @@ class Context(dict):
         else:
             required_args = args
             optional_args = []
-        values = [self[arg] for arg in required_args]
+        values = [
+            kwargs[arg] if arg in kwargs else self[arg]
+            for arg in required_args
+        ]
         if defaults:
             values.extend(
-                self.get(arg, default)
+                kwargs[arg] if arg in kwargs else self.get(arg, default)
                 for arg, default in zip(optional_args, defaults)
             )
         return func(*values)
