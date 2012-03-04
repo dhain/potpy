@@ -185,6 +185,15 @@ class TestUrlRouter(unittest.TestCase):
         self.assertIs(r(self.context, 'oof/rab'), app.return_value)
         app.assert_called_once_with('oof', 'rab')
 
+    def test_gets_path_from_context(self):
+        r = router.UrlRouter([
+            (sentinel.name, sentinel.match, lambda: Mock()()),
+        ])
+        r.match = Mock(return_value={})
+        self.context['path'] = sentinel.path
+        self.context.inject(r)
+        r.match.assert_called_once_with(sentinel.match, sentinel.path)
+
 
 if __name__ == '__main__':
     unittest.main()

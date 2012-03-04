@@ -68,3 +68,6 @@ class UrlRouter(Router):
     def match(self, match, path):
         m = self._match_regex(match).match(path)
         return m and m.groupdict()
+
+    def __call__(self, context, path):
+        return super(UrlRouter, self).__call__(context, path)
