@@ -39,6 +39,11 @@ class TestContext(unittest.TestCase):
                 self.bar = bar
         self.assertIs(self.context.inject(Cls).bar, sentinel.bar)
 
+    def test_can_inject_to_classes_without_init(self):
+        class Cls(object):
+            pass
+        self.assertTrue(isinstance(self.context.inject(Cls), Cls))
+
     def test_can_inject_to_instances(self):
         class Cls(object):
             def __call__(self, baz):

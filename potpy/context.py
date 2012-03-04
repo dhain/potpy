@@ -12,6 +12,8 @@ class Context(dict):
             del spec[0][0]
             return spec
         if inspect.isclass(obj):
+            if '__init__' not in obj.__dict__:
+                return [], [], None, None
             return self._get_argspec(obj.__init__)
         return self._get_argspec(obj.__call__)
 
