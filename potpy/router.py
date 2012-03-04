@@ -62,6 +62,7 @@ class PathRouter(Router):
     def __init__(self, it=()):
         super(PathRouter, self).__init__(it)
         self._match_cache = {}
+        self._template_cache = {}
 
     def _match_regex(self, match):
         try:
@@ -71,12 +72,29 @@ class PathRouter(Router):
                 urltemplate.make_regex(match))
         return rx
 
+    def _fill_template(self, route_name):
+        try:
+            template = self._template_cache[route_name]
+        except KeyError:
+            for name, match, handler in self.routes:
+                if name != route_name:
+                    continue
+                template = self._template_cache[route_name] = \
+                    urltemplate.make_fill_template(match)
+                break
+            else:
+                raise
+        return template
+
     def match(self, match, path):
         m = self._match_regex(match).match(path)
         return m and m.groupdict()
 
     def __call__(self, context, path):
         return super(PathRouter, self).__call__(context, path)
+
+    def reverse(self, route_name, **kwargs):
+        return self._fill_template(route_name) % kwargs
 
 
 class MethodRouter(Router):

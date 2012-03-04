@@ -194,6 +194,12 @@ class TestPathRouter(unittest.TestCase):
         self.context.inject(r)
         r.match.assert_called_once_with(sentinel.match, sentinel.path)
 
+    def test_reverse(self):
+        r = router.PathRouter([
+            ('hello', 'hello/{name}', lambda: Mock()()),
+        ])
+        self.assertEqual(r.reverse('hello', name='guido'), 'hello/guido')
+
 
 class MethodRouter(unittest.TestCase):
     def setUp(self):

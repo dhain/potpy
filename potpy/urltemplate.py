@@ -1,12 +1,11 @@
-def make_regex(template):
+def _parse_template(template):
     bracket_level = 0
     start = 0
-    parts = []
     for i, c in enumerate(template):
         if c == '{':
             if not bracket_level:
                 part = template[start:i].replace('\\', '\\\\')
-                parts.append((part, None))
+                yield (part, None)
                 start = i + 1
             bracket_level += 1
         elif c == '}':
@@ -20,13 +19,27 @@ def make_regex(template):
                 else:
                     name = bracket
                     regex = '.*'
-                parts.append((regex, name))
+                yield (regex, name)
                 start = i + 1
     if bracket_level:
         raise ValueError()
     part = template[start:].replace('\\', '\\\\')
-    parts.append((part, None))
+    yield (part, None)
+
+
+def make_regex(template):
     return ''.join(
         '(?P<%s>%s)' % (name, part) if name else part
-        for part, name in parts
+        for part, name in _parse_template(template)
     )
+
+
+def make_fill_template(template):
+    return ''.join(
+        '%%(%s)s' % (name,) if name else part
+        for part, name in _parse_template(template)
+    )
+
+
+def fill(template, **kwargs):
+    return make_fill_template(template) % kwargs
