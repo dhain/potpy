@@ -158,20 +158,20 @@ class TestRouter(unittest.TestCase):
         self.assertFalse(handler.called)
 
 
-class TestUrlRouter(unittest.TestCase):
+class TestPathRouter(unittest.TestCase):
     def setUp(self):
         self.context = Context()
 
-    def test_routes_empty_url(self):
+    def test_routes_empty_path(self):
         app = Mock(name='app')
-        r = router.UrlRouter([
+        r = router.PathRouter([
             (None, '', lambda: app())
         ])
         self.assertIs(r(self.context, ''), app.return_value)
 
-    def test_matches_url(self):
+    def test_matches_path(self):
         app = Mock(name='app')
-        r = router.UrlRouter([
+        r = router.PathRouter([
             (None, 'foo', lambda: Mock(name='foo')()),
             (None, 'bar', lambda: app())
         ])
@@ -179,14 +179,14 @@ class TestUrlRouter(unittest.TestCase):
 
     def test_injects_match_groups_to_app(self):
         app = Mock(name='app')
-        r = router.UrlRouter([
+        r = router.PathRouter([
             (None, '{foo}/{bar}', lambda foo, bar: app(foo, bar)),
         ])
         self.assertIs(r(self.context, 'oof/rab'), app.return_value)
         app.assert_called_once_with('oof', 'rab')
 
     def test_gets_path_from_context(self):
-        r = router.UrlRouter([
+        r = router.PathRouter([
             (sentinel.name, sentinel.match, lambda: Mock()()),
         ])
         r.match = Mock(return_value={})

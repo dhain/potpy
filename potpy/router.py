@@ -52,9 +52,9 @@ class Router(list):
         raise self.NoRoute()
 
 
-class UrlRouter(Router):
+class PathRouter(Router):
     def __init__(self, it=()):
-        super(UrlRouter, self).__init__(it)
+        super(PathRouter, self).__init__(it)
         self._match_cache = {}
 
     def _match_regex(self, match):
@@ -70,7 +70,7 @@ class UrlRouter(Router):
         return m and m.groupdict()
 
     def __call__(self, context, path):
-        return super(UrlRouter, self).__call__(context, path)
+        return super(PathRouter, self).__call__(context, path)
 
 
 class MethodRouter(Router):
