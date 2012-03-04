@@ -23,11 +23,11 @@ class TestRoute(unittest.TestCase):
         return handler
 
     def test_calls_handlers_in_order(self):
-        route = router.Route([
-            (None, self.handler(sentinel.first), ()),
-            (None, self.handler(sentinel.second), ()),
-            (None, self.handler(sentinel.third), ()),
-        ])
+        route = router.Route(
+            self.handler(sentinel.first),
+            self.handler(sentinel.second),
+            self.handler(sentinel.third),
+        )
         self.assertIs(route(Context()), sentinel.third)
         self.assertEqual(
             self.calls,
@@ -35,18 +35,31 @@ class TestRoute(unittest.TestCase):
         )
 
     def test_adds_named_handler_results_to_context(self):
-        route = router.Route()
-        route.add(self.handler(sentinel.result), 'result')
-        route.add(lambda result: result)
+        route = router.Route(
+            (self.handler(sentinel.result), 'result'),
+            lambda result: result,
+        )
         context = Context()
         self.assertIs(route(context), sentinel.result)
         self.assertEqual(context['result'], sentinel.result)
 
+    def test_can_add_more_handlers(self):
+        route = router.Route(
+            self.handler(sentinel.first),
+            self.handler(sentinel.second),
+        )
+        route.add(self.handler(sentinel.third))
+        self.assertIs(route(Context()), sentinel.third)
+        self.assertEqual(
+            self.calls,
+            [sentinel.first, sentinel.second, sentinel.third]
+        )
+
     def test_subroutes(self):
-        route = router.Route()
-        subroute = router.Route()
-        subroute.add(lambda foo: (foo, sentinel.result), 'sub')
-        route.add(lambda: sentinel.foo, 'foo')
+        route = router.Route((lambda: sentinel.foo, 'foo'))
+        subroute = router.Route(
+            (lambda foo: (foo, sentinel.result), 'sub'),
+        )
         route.add(subroute)
         context = Context()
         self.assertEqual(
@@ -61,27 +74,28 @@ class TestRoute(unittest.TestCase):
     def test_stop(self):
         def stopper():
             raise router.Route.Stop()
-        route = router.Route()
-        route.add(self.handler(sentinel.result))
-        route.add(stopper)
-        route.add(self.handler(sentinel.not_result))
+        route = router.Route(
+            self.handler(sentinel.result),
+            stopper,
+            self.handler(sentinel.not_result)
+        )
         self.assertIs(route(Context()), sentinel.result)
         self.assertEqual(self.calls, [sentinel.result])
 
     def test_stop_with_value(self):
         def stopper():
             raise router.Route.Stop(sentinel.result)
-        route = router.Route()
-        route.add(self.handler(sentinel.not_result))
-        route.add(stopper)
-        route.add(self.handler(sentinel.also_not_result))
+        route = router.Route(
+            self.handler(sentinel.not_result),
+            stopper,
+            self.handler(sentinel.also_not_result)
+        )
         self.assertIs(route(Context()), sentinel.result)
         self.assertEqual(self.calls, [sentinel.not_result])
 
     def test_exceptions_are_raised(self):
         MyException = type('MyException', (Exception,), {})
-        route = router.Route()
-        route.add(lambda: Mock(side_effect=MyException)())
+        route = router.Route(lambda: Mock(side_effect=MyException)())
         with self.assertRaises(MyException):
             route(Context())
 
@@ -90,7 +104,7 @@ class TestRoute(unittest.TestCase):
         exc = MyException()
         def raiser():
             raise exc
-        exc_handler = Mock(name='handler')
+        exc_handler = Mock(name='exc_handler')
         route = router.Route()
         route.add(raiser, exception_handlers=[
             (MyException, lambda exc_info: exc_handler(exc_info))
@@ -102,7 +116,7 @@ class TestRoute(unittest.TestCase):
     def test_exception_handlers_unhandled(self):
         MyException = type('MyException', (Exception,), {})
         OtherException = type('OtherException', (Exception,), {})
-        exc_handler = Mock(name='handler')
+        exc_handler = Mock(name='exc_handler')
         route = router.Route()
         route.add(
             lambda: Mock(side_effect=MyException)(),
@@ -113,6 +127,26 @@ class TestRoute(unittest.TestCase):
         with self.assertRaises(MyException):
             route(Context())
         self.assertFalse(exc_handler.called)
+
+    def test_result_of_exception_handler_is_added_to_context(self):
+        MyException = type('MyException', (Exception,), {})
+        exc = MyException()
+        def raiser():
+            raise exc
+        exc_handler = Mock(
+            name='exc_handler',
+            return_value=sentinel.exc_handler_result
+        )
+        route = router.Route(
+            (raiser, 'handler_result', [
+                (MyException, lambda exc_info: exc_handler(exc_info))
+            ]),
+            lambda handler_result: (handler_result, sentinel.next_result)
+        )
+        self.assertEqual(
+            route(Context()),
+            (sentinel.exc_handler_result, sentinel.next_result)
+        )
 
     def test_can_refer_to_previous(self):
         ctx = Context(foo=sentinel.foo)
@@ -153,12 +187,12 @@ class TestRouter(unittest.TestCase):
 
     def test_injects_match_result_to_handler(self):
         handler = Mock()
-        r = router.Router([
+        r = router.Router(
             ('name1', sentinel.no_match,
              lambda: handler(sentinel.shouldntgetthis)),
             ('name2', sentinel.match,
              lambda foo, bar: handler(foo, bar)),
-        ])
+        )
         r.match = Mock(side_effect=lambda match, obj: {
             'foo': sentinel.foo,
             'bar': sentinel.bar
@@ -183,11 +217,38 @@ class TestRouter(unittest.TestCase):
 
     def test_raises_NoRoute_when_no_routes_match(self):
         handler = Mock()
-        r = router.Router([('name', sentinel.match, handler)])
+        r = router.Router(('name', sentinel.match, handler))
         r.match = Mock(return_value=None)
         with self.assertRaises(r.NoRoute):
             r(self.context, sentinel.obj)
         self.assertFalse(handler.called)
+
+    def test_wraps_handlers_in_route(self):
+        handler = Mock()
+        r = router.Router(
+            ('name', sentinel.match, [
+                lambda: handler(sentinel.result1),
+                lambda: handler(sentinel.result2),
+            ]),
+        )
+        r.match = Mock(return_value={})
+        self.assertTrue(isinstance(r.routes[0][-1], router.Route))
+        self.assertIs(
+            r(self.context, sentinel.obj),
+            handler.return_value
+        )
+        self.assertEqual(
+            handler.call_args_list,
+            [
+                ((sentinel.result1,),),
+                ((sentinel.result2,),),
+            ]
+        )
+
+    def test_doesnt_rewrap_handlers_that_are_already_routes(self):
+        route = router.Route()
+        r = router.Router(('name', sentinel.match, route))
+        self.assertIs(r.routes[0][-1], route)
 
 
 class TestPathRouter(unittest.TestCase):
@@ -196,40 +257,40 @@ class TestPathRouter(unittest.TestCase):
 
     def test_routes_empty_path(self):
         app = Mock(name='app')
-        r = router.PathRouter([
+        r = router.PathRouter(
             (None, '', lambda: app())
-        ])
+        )
         self.assertIs(r(self.context, ''), app.return_value)
 
     def test_matches_path(self):
         app = Mock(name='app')
-        r = router.PathRouter([
+        r = router.PathRouter(
             (None, 'foo', lambda: Mock(name='foo')()),
             (None, 'bar', lambda: app())
-        ])
+        )
         self.assertIs(r(self.context, 'bar'), app.return_value)
 
     def test_injects_match_groups_to_app(self):
         app = Mock(name='app')
-        r = router.PathRouter([
+        r = router.PathRouter(
             (None, '{foo}/{bar}', lambda foo, bar: app(foo, bar)),
-        ])
+        )
         self.assertIs(r(self.context, 'oof/rab'), app.return_value)
         app.assert_called_once_with('oof', 'rab')
 
     def test_gets_path_from_context(self):
-        r = router.PathRouter([
+        r = router.PathRouter(
             (sentinel.name, sentinel.match, lambda: Mock()()),
-        ])
+        )
         r.match = Mock(return_value={})
         self.context['path'] = sentinel.path
         self.context.inject(r)
         r.match.assert_called_once_with(sentinel.match, sentinel.path)
 
     def test_reverse(self):
-        r = router.PathRouter([
+        r = router.PathRouter(
             ('hello', 'hello/{name}', lambda: Mock()()),
-        ])
+        )
         self.assertEqual(r.reverse('hello', name='guido'), 'hello/guido')
 
 
@@ -239,23 +300,23 @@ class MethodRouter(unittest.TestCase):
 
     def test_routes_by_method(self):
         app = Mock(name='app')
-        r = router.MethodRouter([
+        r = router.MethodRouter(
             (None, 'GET', lambda: app())
-        ])
+        )
         self.assertIs(r(self.context, 'GET'), app.return_value)
 
     def test_tuple_specifies_multiple_methods(self):
         app = Mock(name='app')
-        r = router.MethodRouter([
+        r = router.MethodRouter(
             (None, ('GET', 'HEAD'), lambda: app())
-        ])
+        )
         self.assertIs(r(self.context, 'GET'), app.return_value)
         self.assertIs(r(self.context, 'HEAD'), app.return_value)
 
     def test_gets_method_from_context(self):
-        r = router.MethodRouter([
+        r = router.MethodRouter(
             (sentinel.name, sentinel.match, lambda: Mock()()),
-        ])
+        )
         r.match = Mock(return_value={})
         self.context['method'] = sentinel.method
         self.context.inject(r)

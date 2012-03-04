@@ -25,8 +25,18 @@ class Route(object):
                 obj = getattr(obj, name)
             return obj
 
-    def __init__(self, it=()):
-        self.route = list(it)
+    def __init__(self, *route):
+        self.route = []
+        if len(route) == 1 and not isinstance(route[0], tuple):
+            try:
+                route = iter(route[0])
+            except TypeError:
+                pass
+        for handler in route:
+            if isinstance(handler, tuple):
+                self.add(*handler)
+            else:
+                self.add(handler)
 
     def add(self, handler, name=None, exception_handlers=()):
         self.route.append((name, handler, exception_handlers))
@@ -66,21 +76,26 @@ class Router(object):
     class NoRoute(Exception):
         pass
 
-    def __init__(self, it=()):
-        self.routes = list(it)
+    def __init__(self, *routes):
+        self.routes = [
+            (name, match, (
+                Route(handler) if not isinstance(handler, Route)
+                else handler
+            )) for name, match, handler in routes
+        ]
 
     def __call__(self, context, obj):
-        for name, match, handler in self.routes:
+        for name, match, route in self.routes:
             m = self.match(match, obj)
             if m is not None:
                 context.update(m)
-                return context.inject(handler)
+                return route(context)
         raise self.NoRoute()
 
 
 class PathRouter(Router):
-    def __init__(self, it=()):
-        super(PathRouter, self).__init__(it)
+    def __init__(self, *routes):
+        super(PathRouter, self).__init__(*routes)
         self._match_cache = {}
         self._template_cache = {}
 
