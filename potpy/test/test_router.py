@@ -114,6 +114,38 @@ class TestRoute(unittest.TestCase):
             route(Context())
         self.assertFalse(exc_handler.called)
 
+    def test_can_refer_to_previous(self):
+        ctx = Context(foo=sentinel.foo)
+        class MyClass(object):
+            def __call__(self, foo):
+                return foo
+        route = router.Route()
+        route.add(MyClass)
+        route.add(route.previous)
+        self.assertIs(route(ctx), sentinel.foo)
+
+    def test_can_refer_to_attribute_of_previous(self):
+        ctx = Context(foo=sentinel.foo)
+        class MyClass(object):
+            def my_method(self, foo):
+                return foo
+        route = router.Route()
+        route.add(MyClass)
+        route.add(router.Route.previous.my_method)
+        self.assertIs(route(ctx), sentinel.foo)
+
+    def test_can_refer_to_subattribute_of_previous(self):
+        ctx = Context(foo=sentinel.foo)
+        class MyClass(object):
+            class ChildClass(object):
+                @staticmethod
+                def my_method(foo):
+                    return foo
+        route = router.Route()
+        route.add(MyClass)
+        route.add(router.Route.previous.ChildClass.my_method)
+        self.assertIs(route(ctx), sentinel.foo)
+
 
 class TestRouter(unittest.TestCase):
     def setUp(self):

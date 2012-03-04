@@ -9,6 +9,22 @@ class Route(object):
         def __init__(self, value=NoValue):
             self.value = value
 
+    class previous(object):
+        def __init__(self, name):
+            self.name = name
+
+        class __metaclass__(type):
+            def __getattr__(cls, name):
+                return cls(name)
+
+        def __getattr__(self, name):
+            return type(self)('.'.join((self.name, name)))
+
+        def __call__(self, obj):
+            for name in self.name.split('.'):
+                obj = getattr(obj, name)
+            return obj
+
     def __init__(self, it=()):
         self.route = list(it)
 
@@ -18,6 +34,10 @@ class Route(object):
     def __call__(self, context):
         result = None
         for name, handler, exception_handlers in self.route:
+            if handler is self.previous:
+                handler = result
+            elif isinstance(handler, self.previous):
+                handler = handler(result)
             try:
                 try:
                     result = context.inject(handler)
