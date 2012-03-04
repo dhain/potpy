@@ -36,7 +36,7 @@ def make_regex(template):
 
 def make_fill_template(template):
     return ''.join(
-        '%%(%s)s' % (name,) if name else part
+        '%%(%s)s' % (name,) if name else part.replace('%', '%%')
         for part, name in _parse_template(template)
     )
 
