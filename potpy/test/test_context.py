@@ -108,6 +108,12 @@ class TestContext(unittest.TestCase):
         )
         func.assert_called_once_with(sentinel.foo, sentinel.deadbeef)
 
+    def test_get_with_default_returns_default_when_key_not_present(self):
+        self.assertIs(
+            self.context.get('frob', sentinel.default),
+            sentinel.default
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

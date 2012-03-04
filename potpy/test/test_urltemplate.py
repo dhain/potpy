@@ -1,6 +1,6 @@
 import unittest
 
-from potpy.urltemplate import make_regex, make_fill_template
+from potpy.urltemplate import make_regex, make_fill_template, fill
 
 
 class TestMakeRegex(unittest.TestCase):
@@ -112,6 +112,12 @@ class TestMakeFillTemplate(unittest.TestCase):
 
     def test_string_with_percent_in_brackets(self):
         self.assertEqual(make_fill_template('{foo:bar%bar}'), '%(foo)s')
+
+    def test_fill(self):
+        self.assertEqual(
+            fill('{foo}, {bar}', foo='baz', bar='qux'),
+            'baz, qux'
+        )
 
 
 if __name__ == '__main__':
