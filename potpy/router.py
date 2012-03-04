@@ -3,18 +3,21 @@ import sys
 from . import urltemplate
 
 
-class Route(list):
+class Route(object):
     class Stop(Exception):
         NoValue = type('NoValue', (), {})
         def __init__(self, value=NoValue):
             self.value = value
 
+    def __init__(self, it=()):
+        self.route = list(it)
+
     def add(self, handler, name=None, exception_handlers=()):
-        self.append((name, handler, exception_handlers))
+        self.route.append((name, handler, exception_handlers))
 
     def __call__(self, context):
         result = None
-        for name, handler, exception_handlers in self:
+        for name, handler, exception_handlers in self.route:
             try:
                 try:
                     result = context.inject(handler)
@@ -39,12 +42,15 @@ class Route(list):
         return result
 
 
-class Router(list):
+class Router(object):
     class NoRoute(Exception):
         pass
 
+    def __init__(self, it=()):
+        self.routes = list(it)
+
     def __call__(self, context, obj):
-        for name, match, handler in self:
+        for name, match, handler in self.routes:
             m = self.match(match, obj)
             if m is not None:
                 context.update(m)
