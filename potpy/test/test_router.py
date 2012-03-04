@@ -286,6 +286,14 @@ class TestPathRouter(unittest.TestCase):
         r(self.context, sentinel.path)
         r.match.assert_called_once_with(rx, sentinel.path)
 
+    def test_named_routes_may_not_be_compiled_regex(self):
+        with self.assertRaises(TypeError) as assertion:
+            router.PathRouter(('name', re.compile(''), lambda: None))
+        self.assertEqual(
+            assertion.exception.message,
+            'match argument for named routes must be strings'
+        )
+
     def test_gets_path_from_context(self):
         rx = re.compile('')
         r = router.PathRouter(

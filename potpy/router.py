@@ -105,6 +105,9 @@ class PathRouter(Router):
     def add(self, *args):
         if len(args) > 2:
             name, match = args[:2]
+            if not isinstance(match, basestring):
+                raise TypeError(
+                    'match argument for named routes must be strings')
             args = args[2:]
             self._templates[name] = urltemplate.make_fill_template(match)
         else:
