@@ -71,3 +71,13 @@ class UrlRouter(Router):
 
     def __call__(self, context, path):
         return super(UrlRouter, self).__call__(context, path)
+
+
+class MethodRouter(Router):
+    def match(self, match, method):
+        if isinstance(match, basestring):
+            return {} if method == match else None
+        return {} if method in match else None
+
+    def __call__(self, context, method):
+        return super(MethodRouter, self).__call__(context, method)

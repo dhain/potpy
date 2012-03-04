@@ -195,5 +195,34 @@ class TestUrlRouter(unittest.TestCase):
         r.match.assert_called_once_with(sentinel.match, sentinel.path)
 
 
+class MethodRouter(unittest.TestCase):
+    def setUp(self):
+        self.context = Context()
+
+    def test_routes_by_method(self):
+        app = Mock(name='app')
+        r = router.MethodRouter([
+            (None, 'GET', lambda: app())
+        ])
+        self.assertIs(r(self.context, 'GET'), app.return_value)
+
+    def test_tuple_specifies_multiple_methods(self):
+        app = Mock(name='app')
+        r = router.MethodRouter([
+            (None, ('GET', 'HEAD'), lambda: app())
+        ])
+        self.assertIs(r(self.context, 'GET'), app.return_value)
+        self.assertIs(r(self.context, 'HEAD'), app.return_value)
+
+    def test_gets_method_from_context(self):
+        r = router.MethodRouter([
+            (sentinel.name, sentinel.match, lambda: Mock()()),
+        ])
+        r.match = Mock(return_value={})
+        self.context['method'] = sentinel.method
+        self.context.inject(r)
+        r.match.assert_called_once_with(sentinel.match, sentinel.method)
+
+
 if __name__ == '__main__':
     unittest.main()
