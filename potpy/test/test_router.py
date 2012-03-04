@@ -1,3 +1,4 @@
+import re
 import unittest
 from types import TracebackType
 from mock import sentinel, Mock
@@ -188,10 +189,8 @@ class TestRouter(unittest.TestCase):
     def test_injects_match_result_to_handler(self):
         handler = Mock()
         r = router.Router(
-            ('name1', sentinel.no_match,
-             lambda: handler(sentinel.shouldntgetthis)),
-            ('name2', sentinel.match,
-             lambda foo, bar: handler(foo, bar)),
+            (sentinel.no_match, lambda: handler(sentinel.not_result)),
+            (sentinel.match, lambda foo, bar: handler(foo, bar)),
         )
         r.match = Mock(side_effect=lambda match, obj: {
             'foo': sentinel.foo,
@@ -217,7 +216,7 @@ class TestRouter(unittest.TestCase):
 
     def test_raises_NoRoute_when_no_routes_match(self):
         handler = Mock()
-        r = router.Router(('name', sentinel.match, handler))
+        r = router.Router((sentinel.match, handler))
         r.match = Mock(return_value=None)
         with self.assertRaises(r.NoRoute):
             r(self.context, sentinel.obj)
@@ -226,7 +225,7 @@ class TestRouter(unittest.TestCase):
     def test_wraps_handlers_in_route(self):
         handler = Mock()
         r = router.Router(
-            ('name', sentinel.match, [
+            (sentinel.match, [
                 lambda: handler(sentinel.result1),
                 lambda: handler(sentinel.result2),
             ]),
@@ -247,7 +246,7 @@ class TestRouter(unittest.TestCase):
 
     def test_doesnt_rewrap_handlers_that_are_already_routes(self):
         route = router.Route()
-        r = router.Router(('name', sentinel.match, route))
+        r = router.Router((sentinel.match, route))
         self.assertIs(r.routes[0][-1], route)
 
 
@@ -258,34 +257,44 @@ class TestPathRouter(unittest.TestCase):
     def test_routes_empty_path(self):
         app = Mock(name='app')
         r = router.PathRouter(
-            (None, '', lambda: app())
+            ('', lambda: app())
         )
         self.assertIs(r(self.context, ''), app.return_value)
 
     def test_matches_path(self):
         app = Mock(name='app')
         r = router.PathRouter(
-            (None, 'foo', lambda: Mock(name='foo')()),
-            (None, 'bar', lambda: app())
+            ('foo', lambda: Mock(name='foo')()),
+            ('bar', lambda: app())
         )
         self.assertIs(r(self.context, 'bar'), app.return_value)
 
     def test_injects_match_groups_to_app(self):
         app = Mock(name='app')
         r = router.PathRouter(
-            (None, '{foo}/{bar}', lambda foo, bar: app(foo, bar)),
+            ('{foo}/{bar}', lambda foo, bar: app(foo, bar)),
         )
         self.assertIs(r(self.context, 'oof/rab'), app.return_value)
         app.assert_called_once_with('oof', 'rab')
 
-    def test_gets_path_from_context(self):
+    def test_match_can_be_compiled_regex(self):
+        rx = re.compile('')
         r = router.PathRouter(
-            (sentinel.name, sentinel.match, lambda: Mock()()),
+            (rx, lambda: Mock()()),
+        )
+        r.match = Mock(return_value={})
+        r(self.context, sentinel.path)
+        r.match.assert_called_once_with(rx, sentinel.path)
+
+    def test_gets_path_from_context(self):
+        rx = re.compile('')
+        r = router.PathRouter(
+            (rx, lambda: Mock()()),
         )
         r.match = Mock(return_value={})
         self.context['path'] = sentinel.path
         self.context.inject(r)
-        r.match.assert_called_once_with(sentinel.match, sentinel.path)
+        r.match.assert_called_once_with(rx, sentinel.path)
 
     def test_reverse(self):
         r = router.PathRouter(
@@ -301,21 +310,21 @@ class MethodRouter(unittest.TestCase):
     def test_routes_by_method(self):
         app = Mock(name='app')
         r = router.MethodRouter(
-            (None, 'GET', lambda: app())
+            ('GET', lambda: app())
         )
         self.assertIs(r(self.context, 'GET'), app.return_value)
 
     def test_tuple_specifies_multiple_methods(self):
         app = Mock(name='app')
         r = router.MethodRouter(
-            (None, ('GET', 'HEAD'), lambda: app())
+            (('GET', 'HEAD'), lambda: app())
         )
         self.assertIs(r(self.context, 'GET'), app.return_value)
         self.assertIs(r(self.context, 'HEAD'), app.return_value)
 
     def test_gets_method_from_context(self):
         r = router.MethodRouter(
-            (sentinel.name, sentinel.match, lambda: Mock()()),
+            (sentinel.match, lambda: Mock()()),
         )
         r.match = Mock(return_value={})
         self.context['method'] = sentinel.method

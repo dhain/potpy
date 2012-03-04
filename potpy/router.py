@@ -77,15 +77,18 @@ class Router(object):
         pass
 
     def __init__(self, *routes):
-        self.routes = [
-            (name, match, (
-                Route(handler) if not isinstance(handler, Route)
-                else handler
-            )) for name, match, handler in routes
-        ]
+        self.routes = []
+        for route in routes:
+            self.add(*route)
+
+    def add(self, match, handler):
+        self.routes.append((match, (
+            Route(handler) if not isinstance(handler, Route)
+            else handler
+        )))
 
     def __call__(self, context, obj):
-        for name, match, route in self.routes:
+        for match, route in self.routes:
             m = self.match(match, obj)
             if m is not None:
                 context.update(m)
@@ -95,41 +98,32 @@ class Router(object):
 
 class PathRouter(Router):
     def __init__(self, *routes):
-        super(PathRouter, self).__init__(*routes)
+        self._templates = {}
         self._match_cache = {}
-        self._template_cache = {}
+        super(PathRouter, self).__init__(*routes)
 
-    def _match_regex(self, match):
-        try:
-            rx = self._match_cache[match]
-        except KeyError:
-            rx = self._match_cache[match] = re.compile(
-                urltemplate.make_regex(match))
-        return rx
-
-    def _fill_template(self, route_name):
-        try:
-            template = self._template_cache[route_name]
-        except KeyError:
-            for name, match, handler in self.routes:
-                if name != route_name:
-                    continue
-                template = self._template_cache[route_name] = \
-                    urltemplate.make_fill_template(match)
-                break
-            else:
-                raise
-        return template
+    def add(self, *args):
+        if len(args) > 2:
+            name, match = args[:2]
+            args = args[2:]
+            self._templates[name] = urltemplate.make_fill_template(match)
+        else:
+            match = args[0]
+            args = args[1:]
+        if not isinstance(match, re._pattern_type):
+            match = re.compile(urltemplate.make_regex(match))
+        super(PathRouter, self).add(match, *args)
 
     def match(self, match, path):
-        m = self._match_regex(match).match(path)
+        m = match.match(path)
         return m and m.groupdict()
 
     def __call__(self, context, path):
         return super(PathRouter, self).__call__(context, path)
 
-    def reverse(self, route_name, **kwargs):
-        return self._fill_template(route_name) % kwargs
+    def reverse(self, *args, **kwargs):
+        (name,) = args
+        return self._templates[name] % kwargs
 
 
 class MethodRouter(Router):
