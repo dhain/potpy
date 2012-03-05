@@ -5,10 +5,18 @@ def _parse(template):
     parts = []
     bracket_level = 0
     start = 0
+    capture_bracket = False
     for i, c in enumerate(template):
         if c == '{':
+            if capture_bracket:
+                capture_bracket = False
+                continue
+            if template[i+1:i+2] == '{':
+                capture_bracket = True
+                continue
             if not bracket_level:
-                part = template[start:i].replace('\\', '\\\\')
+                part = template[start:i] \
+                    .replace('\\', '\\\\').replace('{{', '{')
                 parts.append((part, None))
                 start = i + 1
             bracket_level += 1
@@ -27,14 +35,14 @@ def _parse(template):
                 start = i + 1
     if bracket_level:
         raise ValueError('unbalanced brackets')
-    part = template[start:].replace('\\', '\\\\')
+    part = template[start:].replace('\\', '\\\\').replace('{{', '{')
     parts.append((part, None))
     return parts
 
 
 def _make_pattern(parsed):
     return ''.join(
-        '(?P<%s>%s)' % (name, part) if name else part
+        '(?P<%s>%s)' % (name, part) if name else part.replace('{', r'\{')
         for part, name in parsed
     )
 

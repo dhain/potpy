@@ -50,6 +50,7 @@ class TestTemplate(unittest.TestCase):
     def test_right_heavy_brackets(self):
         t = template.Template(r'{def:\d+}}')
         self.assertEqual(t.regex.pattern, r'(?P<def>\d+)}')
+        self.assertEqual(t.regex.match('1}').groupdict()['def'], '1')
         self.assertEqual(t.fill_template, r'%(def)s}')
 
     def test_backslash(self):
@@ -66,6 +67,41 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(
             t.fill_template,
             '%(abc)s/%(def)s%(ghi)sjkl'
+        )
+
+    def test_literal_brackets(self):
+        t = template.Template('foo{{bar}')
+        self.assertEqual(t.regex.pattern, r'foo\{bar}')
+        self.assertIsNot(t.regex.match('foo{bar}'), None)
+        self.assertEqual(t.fill_template, 'foo{bar}')
+
+    def test_two_consecutive_literal_brackets(self):
+        t = template.Template('foo{{{{bar}')
+        self.assertEqual(t.regex.pattern, r'foo\{\{bar}')
+        self.assertIsNot(t.regex.match('foo{{bar}'), None)
+        self.assertEqual(t.fill_template, 'foo{{bar}')
+
+    def test_literal_bracket_at_end_of_string(self):
+        t = template.Template('foo{{')
+        self.assertEqual(t.regex.pattern, r'foo\{')
+        self.assertIsNot(t.regex.match('foo{'), None)
+        self.assertEqual(t.fill_template, 'foo{')
+
+    def test_literal_bracket_before_bracket(self):
+        t = template.Template('foo{{{bar}')
+        self.assertEqual(t.regex.pattern, r'foo\{(?P<bar>.*)')
+        self.assertEqual(
+            t.regex.match('foo{baz').groupdict()['bar'],
+            'baz'
+        )
+        self.assertEqual(t.fill_template, 'foo{%(bar)s')
+
+    def test_unbalanced_bracket_at_end_of_string(self):
+        with self.assertRaises(ValueError) as assertion:
+            template.Template('foo{')
+        self.assertEqual(
+            assertion.exception.message,
+            'unbalanced brackets'
         )
 
     def test_percent(self):
