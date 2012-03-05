@@ -3,6 +3,7 @@ import unittest
 from mock import sentinel, Mock
 
 from potpy.context import Context
+from potpy.template import Template
 from potpy import wsgi
 
 
@@ -33,32 +34,20 @@ class TestPathRouter(unittest.TestCase):
         self.assertIs(r(self.context, 'oof/rab'), app.return_value)
         app.assert_called_once_with('oof', 'rab')
 
-    def test_match_can_be_compiled_regex(self):
-        rx = re.compile('')
-        r = wsgi.PathRouter(
-            (rx, lambda: Mock()()),
-        )
+    def test_match_can_be_template(self):
+        template = Template('')
+        r = wsgi.PathRouter((template, lambda: Mock()()))
         r.match = Mock(return_value={})
         r(self.context, sentinel.path)
-        r.match.assert_called_once_with(rx, sentinel.path)
-
-    def test_named_routes_may_not_be_compiled_regex(self):
-        with self.assertRaises(TypeError) as assertion:
-            wsgi.PathRouter(('name', re.compile(''), lambda: None))
-        self.assertEqual(
-            assertion.exception.message,
-            'match argument for named routes must be strings'
-        )
+        r.match.assert_called_once_with(template, sentinel.path)
 
     def test_gets_path_from_context(self):
-        rx = re.compile('')
-        r = wsgi.PathRouter(
-            (rx, lambda: Mock()()),
-        )
+        template = Template('')
+        r = wsgi.PathRouter((template, lambda: Mock()()))
         r.match = Mock(return_value={})
         self.context['path'] = sentinel.path
         self.context.inject(r)
-        r.match.assert_called_once_with(rx, sentinel.path)
+        r.match.assert_called_once_with(template, sentinel.path)
 
     def test_reverse(self):
         r = wsgi.PathRouter(
