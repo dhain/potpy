@@ -34,6 +34,10 @@ class PathRouter(Router):
 
 
 class MethodRouter(Router):
+    class MethodNotAllowed(Router.NoRoute):
+        pass
+    NoRoute = MethodNotAllowed
+
     def match(self, match, method):
         if isinstance(match, basestring):
             return {} if method == match else None

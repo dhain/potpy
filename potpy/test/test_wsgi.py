@@ -84,6 +84,15 @@ class MethodRouter(unittest.TestCase):
         self.context.inject(r)
         r.match.assert_called_once_with(sentinel.match, sentinel.method)
 
+    def test_NoRoute_is_subclass(self):
+        self.assertTrue(issubclass(
+            wsgi.MethodRouter.MethodNotAllowed, wsgi.Router.NoRoute))
+        r = wsgi.MethodRouter()
+        with self.assertRaises(r.NoRoute) as assertion:
+            r(self.context, '')
+        self.assertTrue(
+            isinstance(assertion.exception, r.MethodNotAllowed))
+
 
 if __name__ == '__main__':
     unittest.main()
