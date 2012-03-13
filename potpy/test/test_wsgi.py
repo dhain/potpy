@@ -1,6 +1,6 @@
 import re
 import unittest
-from mock import sentinel, Mock
+from mock import sentinel, Mock, patch
 
 from potpy.context import Context
 from potpy.template import Template
@@ -45,7 +45,7 @@ class TestPathRouter(unittest.TestCase):
         template = Template('')
         r = wsgi.PathRouter((template, lambda: Mock()()))
         r.match = Mock(return_value={})
-        self.context['path'] = sentinel.path
+        self.context['path_info'] = sentinel.path
         self.context.inject(r)
         r.match.assert_called_once_with(template, sentinel.path)
 
@@ -80,18 +80,136 @@ class MethodRouter(unittest.TestCase):
             (sentinel.match, lambda: Mock()()),
         )
         r.match = Mock(return_value={})
-        self.context['method'] = sentinel.method
+        self.context['request_method'] = sentinel.method
         self.context.inject(r)
         r.match.assert_called_once_with(sentinel.match, sentinel.method)
 
     def test_NoRoute_is_subclass(self):
         self.assertTrue(issubclass(
             wsgi.MethodRouter.MethodNotAllowed, wsgi.Router.NoRoute))
-        r = wsgi.MethodRouter()
-        with self.assertRaises(r.NoRoute) as assertion:
-            r(self.context, '')
-        self.assertTrue(
-            isinstance(assertion.exception, r.MethodNotAllowed))
+        app = Mock(name='app')
+        r = wsgi.MethodRouter(
+            (('GET', 'HEAD'), lambda: app()),
+            (('POST',), lambda: app())
+        )
+        with self.assertRaises(r.MethodNotAllowed) as assertion:
+            r(self.context, 'DELETE')
+        self.assertEqual(assertion.exception.request_method, 'DELETE')
+        self.assertEqual(
+            assertion.exception.allowed_methods,
+            ['GET', 'HEAD', 'POST']
+        )
+
+
+class TestApp(unittest.TestCase):
+    def setUp(self):
+        self.environ = {
+            'PATH_INFO': sentinel.path_info,
+            'REQUEST_METHOD': sentinel.request_method,
+        }
+
+    def test_not_found(self):
+        app = wsgi.App(sentinel.router)
+        start_response = Mock()
+        message = 'The requested resource could not be found.\r\n'
+        expected_headers = [
+            ('Content-type', 'text/plain'),
+            ('Content-length', str(len(message)))
+        ]
+        self.assertEqual(
+            app.not_found(sentinel.environ, start_response),
+            [message]
+        )
+        start_response.assert_called_once_with(
+            '404 Not Found', expected_headers)
+
+    def test_method_not_allowed(self):
+        app = wsgi.App(sentinel.router)
+        start_response = Mock()
+        request_method = 'DELETE'
+        allowed_methods = ['GET', 'HEAD']
+        joined_methods = ', '.join(allowed_methods)
+        message = (
+            'The requested resource does not support '
+            'the %s method. It does support: %s.\r\n'
+        ) % (request_method, joined_methods)
+        expected_headers = [
+            ('Content-type', 'text/plain'),
+            ('Content-length', str(len(message))),
+            ('Allow', joined_methods)
+        ]
+        self.assertEqual(
+            app.method_not_allowed(
+                request_method, allowed_methods
+            )(sentinel.environ, start_response),
+            [message]
+        )
+        start_response.assert_called_once_with(
+            '405 Method Not Allowed', expected_headers)
+
+    def test_method_not_allowed_options(self):
+        app = wsgi.App(sentinel.router)
+        start_response = Mock()
+        request_method = 'OPTIONS'
+        allowed_methods = ['GET', 'HEAD']
+        joined_methods = ', '.join(allowed_methods)
+        message = (
+            'The requested resource supports the '
+            'following methods: %s.\r\n'
+        ) % (joined_methods,)
+        expected_headers = [
+            ('Content-type', 'text/plain'),
+            ('Content-length', str(len(message))),
+            ('Allow', joined_methods)
+        ]
+        self.assertEqual(
+            app.method_not_allowed(
+                request_method, allowed_methods
+            )(sentinel.environ, start_response),
+            [message]
+        )
+        start_response.assert_called_once_with(
+            '200 OK', expected_headers)
+
+    def test_sets_up_and_injects_context(self):
+        router = Mock()
+        app = wsgi.App(
+            lambda environ, path_info, request_method: router(
+                environ, path_info, request_method))
+        self.assertIs(
+            app(self.environ, sentinel.start_response),
+            router.return_value.return_value
+        )
+        router.assert_called_once_with(
+            self.environ, sentinel.path_info, sentinel.request_method)
+        router.return_value.assert_called_once_with(
+            self.environ, sentinel.start_response)
+
+    def test_handles_NoRoute(self):
+        router = Mock(side_effect=wsgi.PathRouter.NoRoute)
+        app = wsgi.App(lambda: router())
+        with patch.object(app, 'not_found') as not_found:
+            self.assertIs(
+                app(self.environ, sentinel.start_response),
+                not_found.return_value
+            )
+        not_found.assert_called_once_with(
+            self.environ, sentinel.start_response)
+
+    def test_handles_MethodNotFound(self):
+        router = Mock(
+            side_effect=wsgi.MethodRouter.MethodNotAllowed(
+                sentinel.allowed_methods, sentinel.request_method))
+        app = wsgi.App(lambda: router())
+        with patch.object(app, 'method_not_allowed') as not_allowed:
+            self.assertIs(
+                app(self.environ, sentinel.start_response),
+                not_allowed.return_value.return_value
+            )
+        not_allowed.assert_called_once_with(
+            sentinel.request_method, sentinel.allowed_methods)
+        not_allowed.return_value.assert_called_once_with(
+            self.environ, sentinel.start_response)
 
 
 if __name__ == '__main__':
