@@ -210,8 +210,9 @@ class TestRouter(unittest.TestCase):
 
     def test_raises_NoRoute_when_no_routes_at_all(self):
         r = router.Router()
-        with self.assertRaises(r.NoRoute):
-            r(self.context, '')
+        with self.assertRaises(r.NoRoute) as assertion:
+            r(self.context, sentinel.obj)
+        self.assertIs(assertion.exception.args[0], sentinel.obj)
 
     def test_raises_NoRoute_when_no_routes_match(self):
         handler = Mock()

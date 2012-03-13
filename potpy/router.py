@@ -91,4 +91,4 @@ class Router(object):
             if m is not None:
                 context.update(m)
                 return route(context)
-        raise self.NoRoute()
+        raise self.NoRoute(obj)
