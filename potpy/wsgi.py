@@ -1,5 +1,6 @@
 from .router import Router
 from .template import Template
+from .util import rename_args
 
 
 class PathRouter(Router):
@@ -25,8 +26,7 @@ class PathRouter(Router):
         m = template.regex.match(path)
         return m and m.groupdict()
 
-    def __call__(self, context, path):
-        return super(PathRouter, self).__call__(context, path)
+    __call__ = rename_args(Router.__call__, ('self', 'context', 'path'))
 
     def reverse(self, *args, **kwargs):
         (name,) = args
@@ -39,5 +39,4 @@ class MethodRouter(Router):
             return {} if method == match else None
         return {} if method in match else None
 
-    def __call__(self, context, method):
-        return super(MethodRouter, self).__call__(context, method)
+    __call__ = rename_args(Router.__call__, ('self', 'context', 'method'))
