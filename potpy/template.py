@@ -44,7 +44,7 @@ def _make_pattern(parsed):
     return ''.join(
         '(?P<%s>%s)' % (name, part) if name else part.replace('{', r'\{')
         for part, name in parsed
-    )
+    ) + '$'
 
 
 def _make_fill_template(parsed):
