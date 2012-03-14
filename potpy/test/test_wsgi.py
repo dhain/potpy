@@ -211,6 +211,18 @@ class TestApp(unittest.TestCase):
         not_allowed.return_value.assert_called_once_with(
             self.environ, sentinel.start_response)
 
+    def test_can_specify_default_context(self):
+        router = Mock()
+        app = wsgi.App(
+            lambda extra1, extra2: router(extra1, extra2),
+            {
+                'extra1': sentinel.extra1,
+                'extra2': sentinel.extra2,
+            }
+        )
+        app(self.environ, sentinel.start_response),
+        router.assert_called_once_with(sentinel.extra1, sentinel.extra2)
+
 
 if __name__ == '__main__':
     unittest.main()

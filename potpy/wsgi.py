@@ -57,8 +57,11 @@ class MethodRouter(Router):
 
 
 class App(object):
-    def __init__(self, router):
+    def __init__(self, router, default_context=None):
         self.router = router
+        if default_context is None:
+            default_context = {}
+        self.default_context = default_context
 
     def not_found(self, environ, start_response):
         message = 'The requested resource could not be found.\r\n'
@@ -93,6 +96,7 @@ class App(object):
 
     def __call__(self, environ, start_response):
         context = Context(
+            self.default_context,
             environ=environ,
             path_info=environ['PATH_INFO'],
             request_method=environ['REQUEST_METHOD']
