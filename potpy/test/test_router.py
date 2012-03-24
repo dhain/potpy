@@ -180,6 +180,44 @@ class TestRoute(unittest.TestCase):
         route.add(router.Route.previous.ChildClass.my_method)
         self.assertIs(route(ctx), sentinel.foo)
 
+    def test_can_refer_to_context(self):
+        bar = Mock()
+        ctx = Context(foo=sentinel.foo, bar=lambda foo: lambda: bar(foo))
+        route = router.Route()
+        route.add(route.context.bar)
+        self.assertIs(route(ctx), bar.return_value)
+        bar.assert_called_once_with(sentinel.foo)
+
+    def test_can_refer_to_context_by_key(self):
+        bar = Mock()
+        ctx = Context(foo=sentinel.foo, bar=lambda foo: lambda: bar(foo))
+        route = router.Route()
+        route.add(route.context['bar'])
+        self.assertIs(route(ctx), bar.return_value)
+        bar.assert_called_once_with(sentinel.foo)
+
+    def test_referring_to_context_directly_raises_TypeError(self):
+        ctx = Context()
+        route = router.Route()
+        route.add(route.context)
+        with self.assertRaises(TypeError) as assertion:
+            route(ctx)
+        self.assertEqual(
+            assertion.exception.message,
+            "can't refer to context directly"
+        )
+
+    def test_can_refer_to_attribute_of_context_item(self):
+        class MyClass(object):
+            class ChildClass(object):
+                @staticmethod
+                def my_method(foo):
+                    return foo
+        ctx = Context(foo=sentinel.foo, bar=lambda: MyClass())
+        route = router.Route()
+        route.add(route.context.bar.ChildClass.my_method)
+        self.assertIs(route(ctx), sentinel.foo)
+
 
 class TestRouter(unittest.TestCase):
     def setUp(self):

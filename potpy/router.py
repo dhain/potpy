@@ -8,12 +8,12 @@ class Route(object):
             self.value = value
 
     class previous(object):
-        def __init__(self, name):
-            self.name = name
-
         class __metaclass__(type):
             def __getattr__(cls, name):
                 return cls(name)
+
+        def __init__(self, name):
+            self.name = name
 
         def __getattr__(self, name):
             return type(self)('.'.join((self.name, name)))
@@ -21,6 +21,28 @@ class Route(object):
         def __call__(self, obj):
             for name in self.name.split('.'):
                 obj = getattr(obj, name)
+            return obj
+
+    class context(object):
+        class __metaclass__(type):
+            def __getitem__(cls, key):
+                return cls(key)
+            __getattr__ = __getitem__
+
+        def __init__(self, key, name=None):
+            self.key = key
+            self.name = name
+
+        def __getattr__(self, name):
+            if self.name:
+                name = '.'.join((self.name, name))
+            return type(self)(self.key, name)
+
+        def __call__(self, context):
+            obj = context[self.key]
+            if self.name:
+                for name in self.name.split('.'):
+                    obj = getattr(obj, name)
             return obj
 
     def __init__(self, *route):
@@ -42,7 +64,11 @@ class Route(object):
     def __call__(self, context):
         result = None
         for name, handler, exception_handlers in self.route:
-            if handler is self.previous:
+            if handler is self.context:
+                raise TypeError("can't refer to context directly")
+            elif isinstance(handler, self.context):
+                handler = handler(context)
+            elif handler is self.previous:
                 handler = result
             elif isinstance(handler, self.previous):
                 handler = handler(result)
