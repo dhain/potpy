@@ -55,11 +55,20 @@ def _make_fill_template(parsed):
 
 
 class Template(object):
-    def __init__(self, template):
+    def __init__(self, template, **type_converters):
         self.template = template
+        self.type_converters = type_converters
         parsed = _parse(template)
         self.regex = re.compile(_make_pattern(parsed))
         self.fill_template = _make_fill_template(parsed)
+
+    def match(self, string):
+        m = self.regex.match(string)
+        if m:
+            c = self.type_converters
+            return dict((k, c[k](v) if k in c else v)
+                        for k, v in m.groupdict().iteritems())
+        return None
 
     def fill(self, **kwargs):
         return self.fill_template % kwargs

@@ -17,15 +17,17 @@ class PathRouter(Router):
             name = None
             template = args[0]
             args = args[1:]
-        if not isinstance(template, Template):
+        if isinstance(template, tuple):
+            template, type_converters = template
+            template = Template(template, **type_converters)
+        elif not isinstance(template, Template):
             template = Template(template)
         if name:
             self._templates[name] = template
         super(PathRouter, self).add(template, *args)
 
     def match(self, template, path_info):
-        m = template.regex.match(path_info)
-        return m and m.groupdict()
+        return template.match(path_info)
 
     __call__ = rename_args(Router.__call__, (
         'self', 'context', 'path_info'))

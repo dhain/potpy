@@ -41,6 +41,12 @@ class TestPathRouter(unittest.TestCase):
         r(self.context, sentinel.path)
         r.match.assert_called_once_with(template, sentinel.path)
 
+    def test_match_can_be_template_arg_tuple(self):
+        template = ('{foo:\d+}', {'foo': int})
+        r = wsgi.PathRouter((template, lambda: Mock()()))
+        r(self.context, '42')
+        self.assertEqual(self.context['foo'], 42)
+
     def test_gets_path_from_context(self):
         template = Template('')
         r = wsgi.PathRouter((template, lambda: Mock()()))

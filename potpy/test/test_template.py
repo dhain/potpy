@@ -116,6 +116,10 @@ class TestTemplate(unittest.TestCase):
         t = template.Template('{foo}, {bar}')
         self.assertEqual(t.fill(foo='baz', bar='qux'), 'baz, qux')
 
+    def test_type_conversion(self):
+        t = template.Template('{foo:\d+}', foo=int)
+        self.assertEqual(t.match('42')['foo'], 42)
+
 
 if __name__ == '__main__':
     unittest.main()
