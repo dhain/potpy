@@ -1,5 +1,6 @@
 import re
 import inspect
+from pkg_resources import resource_stream
 
 from .wsgi import PathRouter, MethodRouter
 
@@ -179,3 +180,9 @@ def parse_config(lines, module=None):
         method_router = read_method_block(lines, module)
         path_router.add(name, template_arg, method_router)
     return path_router
+
+
+def load_config(name='urls.conf'):
+    module = _calling_module()
+    config = resource_stream(module.__name__, name)
+    return parse_config(config, module)
