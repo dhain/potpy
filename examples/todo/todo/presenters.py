@@ -1,19 +1,23 @@
 from webob import Response
-from webob.exc import HTTPBadRequest, HTTPNotFound
+from webob.exc import HTTPBadRequest, HTTPNotFound, HTTPCreated
 from potpy.router import Route
 
 
-def TodoListPresenter(todos):
+def TodoList(todos):
     return Response('\n'.join(todos))
 
 
-def TodoPresenter(todo):
+def Todo(todo):
     return Response(todo)
 
 
-def InvalidTodoResponse():
+def InvalidTodo():
     raise Route.Stop(HTTPBadRequest())
 
 
-def NotFoundResponse():
+def NotFound():
     raise Route.Stop(HTTPNotFound())
+
+
+def TodoCreated(todo_id):
+    return HTTPCreated(location=str(todo_id))
