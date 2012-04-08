@@ -1,3 +1,66 @@
+"""
+Construct a WSGI router from a configuration file.
+
+A configuration file consists of lines specifying URLs, request methods, and
+handlers, allowing construction of :class:`~potpy.wsgi.PathRouter` and
+:class:`~potpy.wsgi.MethodRouter` instances using a hierarchical syntax.
+
+At the top level, you specify URLs with optional names and parameter type
+converters. See the :class:`~potpy.template.Template` class documentation for
+the converter and URL specification format.
+
+::
+
+    foo /foo/{foo_id:\d+} (foo_id: int):
+        ...
+
+Following each URL is a list of handlers, one on each line. Handlers may also
+specify a name (in parentheses), in which case the result of the handler is
+added to the routing context under that name.
+
+::
+
+    read_foo (foo)
+    save_foo
+
+It is also possible to specify request method handlers using ``* METHOD:``
+blocks. Adjacent method blocks are combined into a single
+:class:`~potpy.wsgi.MethodRouter` instance.
+
+::
+
+    * GET, HEAD:
+        show_foo
+    * POST:
+        edit_foo
+
+Exception handlers can be specified for a given handler by ending the handler
+line with a colon (``:``) and listing exception types and handlers on the
+following lines.
+
+::
+
+    read_foo (foo):
+        ValidationError, BadFooError: show_foo_errors
+        IOError: show_system_errors
+
+Complete Example::
+
+    index /:
+        * GET, HEAD:
+            views.index
+    article /{article_id:\d+} (article_id: int):
+        * GET, HEAD:
+            views.show_article
+        * POST:
+            auth.require_user (user)
+            views.edit_article:
+                views.InvalidArticleError: views.show_article_errors
+    admin /admin/:
+        auth.require_admin (user)  # run this regardless of request_method
+        * GET, HEAD:
+            views.admin_console
+"""
 import re
 import inspect
 from pkg_resources import resource_stream
@@ -171,6 +234,28 @@ def read_handler_block(lines, module):
 
 
 def parse_config(lines, module=None):
+    """Parse a config file.
+
+    Names referenced within the config file are found within the calling
+    module. For example::
+
+        from potpy.configparser import parse_config
+        import foo
+
+        config = '''
+        /foo:
+            foo.bar
+        '''
+        router = parse_config(config.splitlines())
+
+    would find the ``bar`` member of the ``foo`` module, because ``foo`` has
+    been imported.
+
+    :param lines: An iterable of configuration lines (an open file object will
+        do).
+    :param module: Optional. If provided and not None, look for referenced
+        names within this object instead of the calling module.
+    """
     if module is None:
         module = _calling_module()
     lines = IndentChecker(lines)
@@ -192,6 +277,17 @@ def parse_config(lines, module=None):
 
 
 def load_config(name='urls.conf'):
+    """Load a config from a resource file.
+
+    The resource is found using `pkg_resources.resource_stream()`_,
+    relative to the calling module.
+
+    See :func:`parse_config` for config file details.
+
+    :param name: The name of the resource, relative to the calling module.
+
+    .. _pkg_resources.resource_stream(): http://packages.python.org/distribute/pkg_resources.html#basic-resource-access
+    """
     module = _calling_module()
     config = resource_stream(module.__name__, name)
     return parse_config(config, module)

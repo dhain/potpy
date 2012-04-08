@@ -1,27 +1,28 @@
 import os
-from setuptools import setup, find_packages
+from setuptools import setup
 
-version = '0.0.1'
 README = os.path.join(os.path.dirname(__file__), 'README.rst')
-long_description = open(README).read() + '\n\n'
+
+setup_args = dict(
+    name='potpy',
+    version = '0.0.1',
+    description=('A general purpose routing apparatus.'),
+    long_description = open(README).read() + '\n\n',
+    author='David Zuwenden',
+    author_email='dhain@zognot.org',
+    url='https://github.com/dhain/potpy',
+    license='MIT',
+    classifiers=[
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
+    packages=['potpy'],
+    test_suite='potpy.test',
+    test_loader='potpy.test.loader:Loader',
+    tests_require=['mock'],
+)
 
 if __name__ == '__main__':
-    setup(
-        name='potpy',
-        version=version,
-        description=(''),
-        long_description=long_description,
-        author='David Zuwenden',
-        author_email='dhain@zognot.org',
-        url='https://github.com/dhain/potpy',
-        license='MIT',
-        classifiers=[
-            "Intended Audience :: Developers",
-            "License :: OSI Approved :: MIT License",
-            "Programming Language :: Python",
-            "Topic :: Software Development :: Libraries :: Python Modules",
-        ],
-        packages=find_packages(),
-        test_suite='potpy.test',
-        tests_require=['mock'],
-    )
+    setup(**setup_args)
