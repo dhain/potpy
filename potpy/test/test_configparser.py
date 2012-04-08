@@ -43,13 +43,13 @@ class TestParsePathSpec(unittest.TestCase):
 class TestParseMethodSpec(unittest.TestCase):
     def test_single_method(self):
         self.assertEqual(
-            configparser.parse_method_spec('GET:'),
+            configparser.parse_method_spec('* GET:'),
             ['GET']
         )
 
     def test_many_methods(self):
         self.assertEqual(
-            configparser.parse_method_spec('GET, HEAD:'),
+            configparser.parse_method_spec('* GET, HEAD:'),
             ['GET', 'HEAD']
         )
 
@@ -133,10 +133,27 @@ class TestParseConfig(unittest.TestCase):
         module.handler2 = lambda a1, a2: (a1, a2, sentinel.result)
         config = '''
         index /{a1:\d+} (a1: int):
-            GET, HEAD:
+            handler1 (a2)
+            handler2
+        '''
+        router = configparser.parse_config(config.splitlines(), module)
+        self.assertEqual(router.reverse('index', a1=37), '/37')
+        ctx = Context(path_info='/42')
+        self.assertEqual(
+            ctx.inject(router),
+            (42, sentinel.a2, sentinel.result)
+        )
+
+    def test_medium_config(self):
+        module = ModuleType('module')
+        module.handler1 = lambda: sentinel.a2
+        module.handler2 = lambda a1, a2: (a1, a2, sentinel.result)
+        config = '''
+        index /{a1:\d+} (a1: int):
+            * GET, HEAD:
                 handler1 (a2)
                 handler2
-            POST:
+            * POST:
                 handler1
         '''
         router = configparser.parse_config(config.splitlines(), module)
@@ -161,64 +178,40 @@ class TestParseConfig(unittest.TestCase):
         module.handler5 = lambda: sentinel.a5
         module.handler6 = lambda r1: (r1, sentinel.a6)
         module.handler7 = lambda: sentinel.a7
+        module.handler8 = lambda: sentinel.a8
+        module.handler9 = lambda r1, r2: (r1, r2, sentinel.a9)
         config = """
         index /:
-            GET, HEAD:
+            * GET, HEAD:
                 handler1 (a2)
                 handler2
-            POST:
+            * POST:
                 handler1
         todo /{todo_id:\d+} (todo_id: int):
-            GET, HEAD:
+            * GET, HEAD:
                 handler3 (r1):
                     exc1, exc2: handler4
                     exc3: handler5
                 handler6
         other /foo:
-            *:
-                handler7
+            handler7 (r1)
+            * DELETE:
+                handler8 (r2)
+            handler9
         """
         router = configparser.parse_config(config.splitlines(), module)
         ctx = Context(path_info='/42', request_method='GET')
         self.assertEqual(ctx.inject(router), (sentinel.a4, sentinel.a6))
-        ctx = Context(path_info='/foo', request_method='deadbeef')
-        self.assertIs(ctx.inject(router), sentinel.a7)
-
-    def test_wildcard_with_other_methods_raises_SyntaxError(self):
-        module = ModuleType('module')
-        module.handler = lambda: sentinel.a
-        config = """
-        /:
-            *, GET:
-                handler
-        """
-        with self.assertRaises(SyntaxError) as assertion:
-            configparser.parse_config(config.splitlines(), module)
+        ctx = Context(path_info='/foo', request_method='DELETE')
         self.assertEqual(
-            assertion.exception.message,
-            'wildcard must be specified by itself'
+            ctx.inject(router),
+            (sentinel.a7, sentinel.a8, sentinel.a9)
         )
-
-    def test_wildcard_and_other_method_specs_raises_SyntaxError(self):
-        module = ModuleType('module')
-        module.handler = lambda: sentinel.a
-        config = """
-        /:
-            *:
-                handler
-            GET:
-                handler
-        """
-        with self.assertRaises(SyntaxError) as assertion:
-            configparser.parse_config(config.splitlines(), module)
-        self.assertEqual(
-            assertion.exception.message, 'unexpected indent')
 
     def test_omitting_module_uses_calling_module(self):
         config = """
         /:
-            *:
-                TestParseConfig
+            TestParseConfig
         """
         router = configparser.parse_config(config.splitlines())
         self.assertIs(

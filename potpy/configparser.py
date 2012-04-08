@@ -2,6 +2,7 @@ import re
 import inspect
 from pkg_resources import resource_stream
 
+from .router import Route
 from .wsgi import PathRouter, MethodRouter
 
 
@@ -19,7 +20,7 @@ _method_name = '[^%s\x7f()<>@,;:\\\\"/[\]?={} \t%s]+' % (
     ''.join(chr(x) for x in xrange(32)),
     ''.join(chr(x) for x in xrange(128, 256))
 )
-_method_spec = re.compile(r'(%s(?:,\s*%s)*):$' % (
+_method_spec = re.compile(r'\*\s+(%s(?:,\s*%s)*):$' % (
     _method_name, _method_name))
 _handler_spec = re.compile(r'(%s)(?:\s+\((%s)\))?:?$' % (
     _dotted_identifier, _identifier))
@@ -74,10 +75,14 @@ class IndentChecker(object):
         self.indents = []
         self._it = self._iter()
 
+    def back(self):
+        self._yield = True
+
     def _iter(self):
         for line in self.lines:
             if _trailing_spaces_or_comment.match(line):
                 continue
+            self._yield = True
             indent, line = split_indent(line)
             if not self.indents:
                 self.indents.append(indent)
@@ -85,10 +90,11 @@ class IndentChecker(object):
                 self.indents.append(indent)
             while indent < self.indents[-1]:
                 self.indents.pop()
-                yield -1, None
             if indent > self.indents[-1]:
                 raise SyntaxError('incorrect indent')
-            yield len(self.indents) - 1, line
+            while self._yield:
+                self._yield = False
+                yield len(self.indents) - 1, line
 
     def __iter__(self):
         return self._it
@@ -111,10 +117,19 @@ def find_object(module, name):
     return obj
 
 
+def _calling_module():
+    frm = inspect.stack()[2]
+    try:
+        return inspect.getmodule(frm[0])
+    finally:
+        del frm
+
+
 def read_exception_handler_block(lines, module):
     exc_handlers = []
     for depth, line in lines:
         if depth < 3:
+            lines.back()
             break
         types, handler = parse_exception_handler_spec(line)
         types = tuple(find_object(module, t) for t in types)
@@ -125,40 +140,34 @@ def read_exception_handler_block(lines, module):
 
 def read_handler_block(lines, module):
     handlers = []
+    method_router = None
+    last_depth = -1
     for depth, line in lines:
-        if depth < 2:
+        if depth < last_depth:
+            lines.back()
             break
-        handler, name = parse_handler_spec(line)
-        handler = find_object(module, handler)
-        if line.endswith(':'):
-            exc_handlers = read_exception_handler_block(lines, module)
+        last_depth = depth
+        if _method_spec.match(line):
+            if method_router is None:
+                method_router = MethodRouter()
+            method_router.add(
+                tuple(parse_method_spec(line)),
+                read_handler_block(lines, module)
+            )
         else:
-            exc_handlers = ()
-        handlers.append((handler, name, exc_handlers))
+            if method_router is not None:
+                handlers.append(method_router)
+                method_router = None
+            handler, name = parse_handler_spec(line)
+            handler = find_object(module, handler)
+            if line.endswith(':'):
+                exc_handlers = read_exception_handler_block(lines, module)
+            else:
+                exc_handlers = ()
+            handlers.append((handler, name, exc_handlers))
+    if method_router is not None:
+        handlers.append(method_router)
     return handlers
-
-
-def read_method_block(lines, module):
-    method_router = MethodRouter()
-    for depth, line in lines:
-        if depth < 1:
-            break
-        methods = parse_method_spec(line)
-        handlers = read_handler_block(lines, module)
-        if '*' in methods:
-            if len(methods) > 1:
-                raise SyntaxError('wildcard must be specified by itself')
-            return handlers
-        method_router.add(tuple(methods), handlers)
-    return method_router
-
-
-def _calling_module():
-    frm = inspect.stack()[2]
-    try:
-        return inspect.getmodule(frm[0])
-    finally:
-        del frm
 
 
 def parse_config(lines, module=None):
@@ -177,8 +186,8 @@ def parse_config(lines, module=None):
             ))
         else:
             template_arg = path
-        method_router = read_method_block(lines, module)
-        path_router.add(name, template_arg, method_router)
+        handler = read_handler_block(lines, module)
+        path_router.add(name, template_arg, handler)
     return path_router
 
 
