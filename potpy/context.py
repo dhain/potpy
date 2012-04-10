@@ -2,6 +2,59 @@ import inspect
 
 
 class Context(dict):
+    """
+    A dict class that can call callables with arguments from itself.
+
+    Best explained with an example:
+
+    >>> def answer(question, foo):
+    ...     return 'The answer to the %s question is: %d' % (question, foo)
+    ...
+    >>> ctx = Context(foo=42, question='ultimate')
+    >>> ctx.inject(answer)
+    'The answer to the ultimate question is: 42'
+
+    Callable items are called before being passed to the callable:
+
+    >>> ctx = Context(foo=lambda bar: bar.upper(), bar='qux')
+    >>> ctx.inject(lambda foo: foo)
+    'QUX'
+
+    .. note::
+
+        Callable items are called during :meth:`__getitem__`:
+
+            >>> Context(foo=lambda: 42)['foo']
+            42
+
+    Contexts have ``'context'`` as an implicit a member, so callables can
+    refer to the context itself:
+
+    >>> ctx = Context(foo='foo')
+    >>> ctx.inject(lambda context: dict(context))
+    {'foo': 'foo'}
+
+    When injecting a call, you may override context items (or provide missing
+    items) with keyword arguments:
+
+    >>> ctx.inject(lambda foo, bar: (foo, bar), bar='bar')
+    ('foo', 'bar')
+
+    .. note::
+
+        ``*args``- and ``**kwargs``-style arguments cannot be injected at this
+        time.
+
+    .. note::
+
+        Due to limitations of the :mod:`inspect` module, builtin and extension
+        functions cannot be injected. You may work around this by wrapping the
+        function in Python:
+
+            >>> ctx = Context(n='42')
+            >>> ctx.inject(lambda n: int(n))
+            42
+    """
     def _get_argspec(self, obj):
         if not callable(obj):
             raise TypeError('%r is not callable' % (obj,))
@@ -33,6 +86,11 @@ class Context(dict):
             return default
 
     def inject(self, func, **kwargs):
+        """Inject arguments from context into a callable.
+
+        :param func: The callable to inject arguments into.
+        :param \*\*kwargs: Specify values to override context items.
+        """
         args, varargs, keywords, defaults = self._get_argspec(func)
         if defaults:
             required_args = args[:-len(defaults)]
