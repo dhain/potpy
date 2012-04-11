@@ -7,8 +7,16 @@ Module Contents
 ---------------
 
 .. autoclass:: PathRouter
+    :show-inheritance:
     :members:
+    :exclude-members: add, reverse
+
+    .. automethod:: add([name,] template, handler)
+    .. automethod:: reverse(name, \*\*kwargs)
+
 .. autoclass:: MethodRouter
+    :show-inheritance:
     :members:
+
 .. autoclass:: App
-    :members:
+    :members: __call__
