@@ -249,7 +249,7 @@ def parse_config(lines, module=None):
         router = parse_config(config.splitlines())
 
     would find the ``bar`` member of the ``foo`` module, because ``foo`` has
-    been imported.
+    been imported in this module.
 
     :param lines: An iterable of configuration lines (an open file object will
         do).
