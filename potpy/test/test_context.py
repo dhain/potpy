@@ -1,4 +1,9 @@
-import unittest
+from __future__ import with_statement
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
+
 from mock import sentinel, Mock
 
 from potpy import context
