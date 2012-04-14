@@ -1,7 +1,10 @@
 from potpy.wsgi import PathRouter, MethodRouter, App
 
+# Our domain objects
+# ------------------
 
 class Greeter(object):
+    """A WSGI app that displays a greeting."""
     def __init__(self, greeting):
         self.greeting = greeting
 
@@ -14,19 +17,28 @@ class Greeter(object):
 
 
 def get_greeting(name):
+    """Generate a greeting for the given name."""
     return 'Hello, %s' % (name,)
 
 
+
+# PotPy plumbing
+# --------------
+
 hello = MethodRouter(
-    (('GET', 'HEAD'), [
-        (get_greeting, 'greeting'),
-        Greeter
+    (('GET', 'HEAD'), [                 # when the request is a GET or HEAD
+
+        (get_greeting, 'greeting'),     # generate a greeting and save it
+                                        # to the context under the
+                                        # 'greeting' key
+
+        Greeter                         # then show the greeting
     ]),
 )
 
 
 urls = PathRouter(
-    ('hello', '/hello/{name}', hello),
+    ('hello', '/hello/{name}', hello),  # expose the greeter at /hello/{name}
 )
 
 
