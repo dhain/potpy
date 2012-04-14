@@ -62,7 +62,7 @@ Complete Example::
             views.admin_console
 """
 import re
-import inspect
+import sys
 from pkg_resources import resource_stream
 
 from .router import Route
@@ -180,12 +180,19 @@ def find_object(module, name):
     return obj
 
 
-def _calling_module():
-    frm = inspect.stack()[2]
+class _scope(object):
+    def __init__(self, locals, globals):
+        self.__dict__.update(globals)
+        self.__dict__.update(locals)
+
+
+def _calling_scope(depth=1):
     try:
-        return inspect.getmodule(frm[0])
+        frm = sys._getframe(depth)
+        scope = _scope(frm.f_locals, frm.f_globals)
     finally:
         del frm
+    return scope
 
 
 def read_exception_handler_block(lines, module):
@@ -237,19 +244,22 @@ def parse_config(lines, module=None):
     """Parse a config file.
 
     Names referenced within the config file are found within the calling
-    module. For example::
+    scope. For example::
 
-        from potpy.configparser import parse_config
-        import foo
+        >>> from potpy.configparser import parse_config
+        >>> class foo:
+        ...     @staticmethod
+        ...     def bar():
+        ...         pass
+        ...
+        >>> config = '''
+        ... /foo:
+        ...     foo.bar
+        ... '''
+        >>> router = parse_config(config.splitlines())
 
-        config = '''
-        /foo:
-            foo.bar
-        '''
-        router = parse_config(config.splitlines())
-
-    would find the ``bar`` member of the ``foo`` module, because ``foo`` has
-    been imported in this module.
+    would find the ``bar`` method of the ``foo`` class, because ``foo`` is in
+    the same scope as the call to parse_config.
 
     :param lines: An iterable of configuration lines (an open file object will
         do).
@@ -257,7 +267,7 @@ def parse_config(lines, module=None):
         names within this object instead of the calling module.
     """
     if module is None:
-        module = _calling_module()
+        module = _calling_scope(2)
     lines = IndentChecker(lines)
     path_router = PathRouter()
     for depth, line in lines:
@@ -288,6 +298,6 @@ def load_config(name='urls.conf'):
 
     .. _pkg_resources.resource_stream(): http://packages.python.org/distribute/pkg_resources.html#basic-resource-access
     """
-    module = _calling_module()
+    module = _calling_scope(2)
     config = resource_stream(module.__name__, name)
     return parse_config(config, module)
