@@ -11,6 +11,9 @@ flexible routing system. PotPy enables you to:
 * **Write WSGI components using TDD**, without having to deal with WSGI
   conventions except at the edges of the system.
 
+PotPy was inspired by the `Raptor project
+<https://github.com/garybernhardt/raptor>`_ from the Ruby world.
+
 Installation
 ------------
 
