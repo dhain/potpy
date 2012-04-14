@@ -254,7 +254,7 @@ class App(object):
         )
         try:
             response = context.inject(self.router)
-        except MethodRouter.MethodNotAllowed as exc:
+        except MethodRouter.MethodNotAllowed, exc:
             return self.method_not_allowed(
                 exc.request_method, exc.allowed_methods
             )(environ, start_response)
