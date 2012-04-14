@@ -1,5 +1,5 @@
 import unittest
-from loader import Loader
+from potpy.test.loader import Loader
 
 
 if __name__ == '__main__':
