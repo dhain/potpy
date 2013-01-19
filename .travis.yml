@@ -3,4 +3,7 @@ python:
     - "2.5"
     - "2.6"
     - "2.7"
+install:
+    - "pip install --use-mirrors -r test-reqs.txt"
+    - "pip install --use-mirrors ."
 script: python -m potpy.test.runtests
