@@ -1,8 +1,7 @@
 from __future__ import with_statement
-try:
+import unittest
+if not hasattr(unittest.TestCase, 'assertIs'):
     import unittest2 as unittest
-except ImportError:
-    import unittest
 
 from mock import sentinel, Mock
 

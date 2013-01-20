@@ -5,9 +5,8 @@ from setuptools.command.test import ScanningLoader
 
 import potpy
 
-PKG_PATH = potpy.__file__
 DOC_PATH = os.path.abspath(os.path.join(
-    os.path.dirname(PKG_PATH), '..', 'docs'))
+    os.path.dirname(potpy.__file__), '..', 'docs'))
 
 
 def reverse_iter(it):
@@ -20,7 +19,7 @@ def reverse_iter(it):
 class Loader(object):
     def loadTestsFromNames(self, names, module=None):
         suite = ScanningLoader().loadTestsFromNames(names, module)
-        for loader, name, ispkg in walk_packages(PKG_PATH):
+        for loader, name, ispkg in walk_packages(potpy.__path__, potpy.__name__ + '.'):
             if ispkg:
                 continue
             try:

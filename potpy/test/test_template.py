@@ -1,8 +1,7 @@
 from __future__ import with_statement
-try:
+import unittest
+if not hasattr(unittest.TestCase, 'assertIs'):
     import unittest2 as unittest
-except ImportError:
-    import unittest
 
 from potpy import template
 
@@ -47,7 +46,7 @@ class TestTemplate(unittest.TestCase):
         with self.assertRaises(ValueError) as assertion:
             template.Template(r'{def:\d{3}'),
         self.assertEqual(
-            assertion.exception.message,
+            str(assertion.exception),
             'unbalanced brackets'
         )
 
@@ -104,7 +103,7 @@ class TestTemplate(unittest.TestCase):
         with self.assertRaises(ValueError) as assertion:
             template.Template('foo{')
         self.assertEqual(
-            assertion.exception.message,
+            str(assertion.exception),
             'unbalanced brackets'
         )
 

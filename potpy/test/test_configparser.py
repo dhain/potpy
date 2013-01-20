@@ -1,8 +1,7 @@
 from __future__ import with_statement
-try:
+import unittest
+if not hasattr(unittest.TestCase, 'assertIs'):
     import unittest2 as unittest
-except ImportError:
-    import unittest
 
 from types import ModuleType
 from mock import sentinel, Mock
@@ -42,7 +41,7 @@ class TestParsePathSpec(unittest.TestCase):
         with self.assertRaises(SyntaxError) as assertion:
             configparser.parse_path_spec(':')
         self.assertEqual(
-            assertion.exception.message, 'expecting path spec')
+            str(assertion.exception), 'expecting path spec')
 
 
 class TestParseMethodSpec(unittest.TestCase):
@@ -62,7 +61,7 @@ class TestParseMethodSpec(unittest.TestCase):
         with self.assertRaises(SyntaxError) as assertion:
             configparser.parse_method_spec('foo;bar:')
         self.assertEqual(
-            assertion.exception.message, 'expecting method spec')
+            str(assertion.exception), 'expecting method spec')
 
 
 class TestParseHandlerSpec(unittest.TestCase):
@@ -85,7 +84,7 @@ class TestParseHandlerSpec(unittest.TestCase):
         with self.assertRaises(SyntaxError) as assertion:
             configparser.parse_handler_spec('42')
         self.assertEqual(
-            assertion.exception.message, 'expecting handler spec')
+            str(assertion.exception), 'expecting handler spec')
 
 
 class TestParseExceptionHandlerSpec(unittest.TestCase):
@@ -105,7 +104,7 @@ class TestParseExceptionHandlerSpec(unittest.TestCase):
         with self.assertRaises(SyntaxError) as assertion:
             configparser.parse_exception_handler_spec(': handler')
         self.assertEqual(
-            assertion.exception.message,
+            str(assertion.exception),
             'expecting exception handler spec'
         )
 
