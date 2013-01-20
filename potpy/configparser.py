@@ -168,9 +168,10 @@ def find_object(module, name):
     try:
         obj = getattr(module, path[0])
     except AttributeError:
+        import __builtin__
         try:
-            obj = __builtins__[path[0]]
-        except KeyError:
+            obj = getattr(__builtin__, path[0])
+        except AttributeError:
             raise LookupError()
     for name in path[1:]:
         try:
